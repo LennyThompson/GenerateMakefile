@@ -1,0 +1,11 @@
+{
+  "name": "GenerateMakefile",
+  "version": "0.0.1",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/lodash": "^4.14.74",
+    "@types/node": "^8.0.26",
+    "lodash": "^4.17.4",
+    "typescript": "^2.5.2"
+  }
+}
