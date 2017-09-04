@@ -9,6 +9,17 @@ const MF_SET: string = "set";
 const MF_ADD_SUBDIRECTORY: string = "add_subdirectory";
 const MF_INCLUDE_DIRECTORIES: string = "include_directories";
 const MF_TARGET_LINK_LIBRARIES: string = "target_link_libraries";
+const MF_CMAKE_MINIMUM_REQUIRED: string = "cmake_minimum_required";
+const MF_PROJECT: string = "project";
+
+const VERSION_3_5: string = "VERSION 3.5";
+const CMAKE_CXX_STANDARD_11: string = "CMAKE_CXX_STANDARD 11";
+const CMAKE_CXX_STANDARD_14: string = "CMAKE_CXX_STANDARD 14";
+const CMAKE_VERBOSE_MAKEFILE: string = "CMAKE_VERBOSE_MAKEFILE ON";
+const CMAKE_CXX_FLAGS: string = "CMAKE_CXX_FLAGS";
+const CMAKE_C_FLAGS: string = "CMAKE_C_FLAGS";
+
+const INDENT: string = "     ";
 
 export interface Options
 {
@@ -53,17 +64,33 @@ class MakeStructureImpl implements MakeStructure
         let bWritten: boolean = false;
         let stream: WriteStream = fs.createWriteStream(path.join(this.options.root, "CMakeLists.txt"));
 
+        if(this.isRoot)
+        {
+            stream.write(MF_CMAKE_MINIMUM_REQUIRED + "(" + VERSION_3_5 + ")\n");
+            stream.write(MF_PROJECT + "(" + this.dirName + "_cmake" + ")\n");
+
+            stream.write(MF_SET + "(" + CMAKE_CXX_STANDARD_11 + ")\n");
+            stream.write(MF_SET + "(" + CMAKE_VERBOSE_MAKEFILE + ")\n");
+            stream.write(MF_SET + "(" + CMAKE_CXX_FLAGS + "${CMAKE_CXX_FLAGS} -m32" + ")\n");
+            stream.write(MF_SET + "(" + CMAKE_C_FLAGS + "${CMAKE_C_FLAGS} -m32" + ")\n");
+
+            stream.write(MF_INCLUDE_DIRECTORIES + "(" + "${PROJECT_SOURCE_DIR}" + ")\n");
+        }
+
         if(!lodash(this.buildFiles).isUndefined())
         {
+            let strIndent: string = INDENT;
             stream.write(MF_SET + "(" + SOURCE_FILES + "\n");
+            strIndent += INDENT;
             lodash(this.buildFiles)
                 .forEach(
                     file =>
                     {
-                        stream.write(file + "\n");
+                        stream.write(strIndent + file + "\n");
                     }
-                )
-            stream.write(")" + "\n");
+                );
+            strIndent = INDENT;
+            stream.write(strIndent + ")\n");
             bWritten = true;
         }
 
@@ -74,13 +101,20 @@ class MakeStructureImpl implements MakeStructure
                     (makeCandidate: MakeStructure) =>
                     {
                         stream.write(MF_ADD_SUBDIRECTORY + "(" + makeCandidate.dirName + ")\n");
-                        stream.write(MF_INCLUDE_DIRECTORIES + "(" + makeCandidate + ")\n");
-                        stream.write(MF_INCLUDE_DIRECTORIES + "(" + makeCandidate + ")\n");
+                        stream.write(MF_INCLUDE_DIRECTORIES + "(" + makeCandidate.dirName + ")\n");
+                        stream.write(MF_TARGET_LINK_LIBRARIES + "(${PROJECT_NAME} " + makeCandidate.libraryName + ")\n");
+                        stream.write("\n");
                     }
                 )
-            stream.write(")" + "\n");
             bWritten = true;
         }
+        stream.end();
+
+        lodash(this.subMake)
+            .forEach(
+                (makeCandidate: MakeStructure) => makeCandidate.buildMakeFile()
+            );
+
         return bWritten;
     }
 
@@ -88,7 +122,7 @@ class MakeStructureImpl implements MakeStructure
     constructor(strDirName: string, private options: Options)
     {
         this.initMakePath();
-        this.isRoot = strDirName ? true : false;
+        this.isRoot = strDirName ? false : true;
         this.dirName = strDirName;
     }
 
@@ -183,5 +217,10 @@ export class MakeFileGenerator
 export default (options: Options) =>
 {
     let generator: MakeFileGenerator = new MakeFileGenerator(options);
-    return generator.generate();
+    let makeStructure: MakeStructure = generator.generate();
+
+    if(makeStructure)
+    {
+        makeStructure.buildMakeFile();
+    }
 }
